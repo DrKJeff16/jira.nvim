@@ -20,10 +20,11 @@ local function validate_env()
   return true
 end
 
--- Execute curl command and parse JSON response
-local function curl_request(method, endpoint, data)
+-- Execute curl command asynchronously
+local function curl_request(method, endpoint, data, callback)
   if not validate_env() then
-    return nil, "Missing environment variables"
+    if callback then callback(nil, "Missing environment variables") end
+    return
   end
 
   local env = get_env()
@@ -47,32 +48,48 @@ local function curl_request(method, endpoint, data)
 
   cmd = cmd .. string.format('"%s"', url)
 
-  -- Execute command
-  local handle = io.popen(cmd)
-  if not handle then
-    return nil, "Failed to execute curl"
-  end
+  local stdout = {}
+  local stderr = {}
 
-  local response = handle:read("*a")
-  handle:close()
+  vim.fn.jobstart(cmd, {
+    on_stdout = function(_, d, _) 
+      for _, chunk in ipairs(d) do
+        if chunk ~= "" then table.insert(stdout, chunk) end
+      end
+    end,
+    on_stderr = function(_, d, _) 
+      for _, chunk in ipairs(d) do
+        if chunk ~= "" then table.insert(stderr, chunk) end
+      end
+    end,
+    on_exit = function(_, code, _) 
+      if code ~= 0 then
+        if callback then callback(nil, "Curl failed: " .. table.concat(stderr, "\n")) end
+        return
+      end
 
-  if not response or response == "" then
-    return nil, "Empty response from Jira"
-  end
+      local response = table.concat(stdout, "")
+      if not response or response == "" then
+        if callback then callback(nil, "Empty response from Jira") end
+        return
+      end
 
-  -- Parse JSON
-  local ok, result = pcall(vim.json.decode, response)
-  if not ok then
-    return nil, "Failed to parse JSON: " .. tostring(result)
-  end
+      -- Parse JSON
+      local ok, result = pcall(vim.json.decode, response)
+      if not ok then
+        if callback then callback(nil, "Failed to parse JSON: " .. tostring(result) .. " | Resp: " .. response) end
+        return
+      end
 
-  return result, nil
+      if callback then callback(result, nil) end
+    end,
+  })
 end
 
 -- Search for issues using JQL
-function M.search_issues(jql, page_token, max_results, fields)
+function M.search_issues(jql, page_token, max_results, fields, callback)
   local story_point_field = config.options.jira.story_point_field
-  fields = fields or { "summary", "status", "parent", "priority", "assignee", "timespent", "aggregatetimeoriginalestimate", "issuetype", story_point_field }
+  fields = fields or { "summary", "status", "parent", "priority", "assignee", "timespent", "timeoriginalestimate", "issuetype", story_point_field }
 
   local data = {
     jql = jql,
@@ -81,72 +98,60 @@ function M.search_issues(jql, page_token, max_results, fields)
     maxResults = max_results or 100,
   }
 
-  local result, err = curl_request("POST", "/rest/api/3/search/jql", data)
-  if err then
-    return nil, err
-  end
-
-  return result, nil
+  curl_request("POST", "/rest/api/3/search/jql", data, callback)
 end
 
 -- Get available transitions for an issue
-function M.get_transitions(issue_key)
-  local result, err = curl_request("GET", "/rest/api/3/issue/" .. issue_key .. "/transitions")
-  if err then
-    return nil, err
-  end
-
-  return result.transitions or {}, nil
+function M.get_transitions(issue_key, callback)
+  curl_request("GET", "/rest/api/3/issue/" .. issue_key .. "/transitions", nil, function(result, err)
+    if err then
+      if callback then callback(nil, err) end
+      return
+    end
+    if callback then callback(result.transitions or {}, nil) end
+  end)
 end
 
 -- Transition an issue to a new status
-function M.transition_issue(issue_key, transition_id)
+function M.transition_issue(issue_key, transition_id, callback)
   local data = {
     transition = {
       id = transition_id,
     },
   }
 
-  local result, err = curl_request("POST", "/rest/api/3/issue/" .. issue_key .. "/transitions", data)
-  if err then
-    return nil, err
-  end
-
-  return true, nil
+  curl_request("POST", "/rest/api/3/issue/" .. issue_key .. "/transitions", data, function(result, err)
+    if err then
+      if callback then callback(nil, err) end
+      return
+    end
+    if callback then callback(true, nil) end
+  end)
 end
 
 -- Add worklog to an issue
-function M.add_worklog(issue_key, time_spent)
+function M.add_worklog(issue_key, time_spent, callback)
   local data = {
     timeSpent = time_spent,
   }
 
-  local result, err = curl_request("POST", "/rest/api/3/issue/" .. issue_key .. "/worklog", data)
-  if err then
-    return nil, err
-  end
-
-  return true, nil
+  curl_request("POST", "/rest/api/3/issue/" .. issue_key .. "/worklog", data, function(result, err)
+    if err then
+      if callback then callback(nil, err) end
+      return
+    end
+    if callback then callback(true, nil) end
+  end)
 end
 
 -- Get issue details
-function M.get_issue(issue_key)
-  local result, err = curl_request("GET", "/rest/api/3/issue/" .. issue_key)
-  if err then
-    return nil, err
-  end
-
-  return result, nil
+function M.get_issue(issue_key, callback)
+  curl_request("GET", "/rest/api/3/issue/" .. issue_key, nil, callback)
 end
 
 -- Get statuses for a project
-function M.get_project_statuses(project)
-  local result, err = curl_request("GET", "/rest/api/3/project/" .. project .. "/statuses")
-  if err then
-    return nil, err
-  end
-
-  return result, nil
+function M.get_project_statuses(project, callback)
+  curl_request("GET", "/rest/api/3/project/" .. project .. "/statuses", nil, callback)
 end
 
 return M

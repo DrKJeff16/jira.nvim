@@ -31,14 +31,16 @@ local function safe_get(obj, key, subkey)
 end
 
 -- Get current active sprint issues
-function M.get_active_sprint_issues(project)
+function M.get_active_sprint_issues(project, callback)
   local now = os.time()
   if cache.data and (now - cache.timestamp) < cache.ttl then
-    return cache.data, nil
+    if callback then callback(cache.data, nil) end
+    return
   end
 
   if not project then
-    return nil, "Project Key is required"
+    if callback then callback(nil, "Project Key is required") end
+    return
   end
 
   local jql = string.format(
@@ -47,67 +49,69 @@ function M.get_active_sprint_issues(project)
   )
 
   local all_issues = {}
-  local next_page_token = ""
-  local max_results = 100
-
-  while true do
-    local result, err = api.search_issues(jql, next_page_token, max_results)
-    if err then
-      return nil, err
-    end
-
-    if not result or not result.issues then
-      break
-    end
-
-    for _, issue in ipairs(result.issues) do
-      local fields = issue.fields
-
-      local status = safe_get(fields, "status", "name") or "Unknown"
-      local parent_key = safe_get(fields, "parent", "key")
-      local priority = safe_get(fields, "priority", "name") or "None"
-      local assignee = safe_get(fields, "assignee", "displayName") or "Unassigned"
-      local issue_type = safe_get(fields, "issuetype", "name") or "Task"
-
-      local time_spent = nil
-      local time_estimate = nil
-
-      if is_valid(fields.timespent) then
-        time_spent = fields.timespent
+  
+  local function fetch_page(page_token)
+    api.search_issues(jql, page_token, 100, nil, function(result, err)
+      if err then
+        if callback then callback(nil, err) end
+        return
       end
 
-      if is_valid(fields.aggregatetimeoriginalestimate) then
-        time_estimate = fields.aggregatetimeoriginalestimate
+      if not result or not result.issues then
+         cache.data = all_issues
+         cache.timestamp = now
+         if callback then callback(all_issues, nil) end
+         return
       end
 
-      local story_point_field = config.options.jira.story_point_field
-      local story_points = safe_get(fields, story_point_field)
+      for _, issue in ipairs(result.issues) do
+        local fields = issue.fields
 
-      table.insert(all_issues, {
-        key = issue.key,
-        summary = fields.summary or "",
-        status = status,
-        parent = parent_key,
-        priority = priority,
-        assignee = assignee,
-        time_spent = time_spent,
-        time_estimate = time_estimate,
-        type = issue_type,
-        story_points = story_points,
-      })
-    end
+        local status = safe_get(fields, "status", "name") or "Unknown"
+        local parent_key = safe_get(fields, "parent", "key")
+        local priority = safe_get(fields, "priority", "name") or "None"
+        local assignee = safe_get(fields, "assignee", "displayName") or "Unassigned"
+        local issue_type = safe_get(fields, "issuetype", "name") or "Task"
 
-    if result.isLast == true then
-      break
-    end
+        local time_spent = nil
+        local time_estimate = nil
 
-    next_page_token = result.nextPageToken
+        if is_valid(fields.timespent) then
+          time_spent = fields.timespent
+        end
+
+        if is_valid(fields.timeoriginalestimate) then
+          time_estimate = fields.timeoriginalestimate
+        end
+
+        local story_point_field = config.options.jira.story_point_field
+        local story_points = safe_get(fields, story_point_field)
+
+        table.insert(all_issues, {
+          key = issue.key,
+          summary = fields.summary or "",
+          status = status,
+          parent = parent_key,
+          priority = priority,
+          assignee = assignee,
+          time_spent = time_spent,
+          time_estimate = time_estimate,
+          type = issue_type,
+          story_points = story_points,
+        })
+      end
+
+      if result.isLast == true then
+        cache.data = all_issues
+        cache.timestamp = now
+        if callback then callback(all_issues, nil) end
+      else
+        fetch_page(result.nextPageToken)
+      end
+    end)
   end
 
-  cache.data = all_issues
-  cache.timestamp = now
-
-  return all_issues, nil
+  fetch_page("")
 end
 
 -- Clear cache
