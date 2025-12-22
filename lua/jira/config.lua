@@ -1,14 +1,18 @@
 local M = {}
 
----@class JiraConfig
----@field jira JiraConfigOptions
+local FALLBACKS = {
+  story_point_field = "customfield_10035",
+}
 
----@class JiraConfigOptions
+---@class JiraConfig
+---@field jira JiraAuthOptions
+---@field projects? table<string, table> Project-specific overrides
+
+---@class JiraAuthOptions
 ---@field base string URL of your Jira instance (e.g. https://your-domain.atlassian.net)
 ---@field email string Your Jira email
 ---@field token string Your Jira API token
----@field story_point_field? string Field ID for story points (default: customfield_10023)
----@field limit? number Limit of task when call API
+---@field limit? number Global limit of tasks when calling API
 
 ---@type JiraConfig
 M.defaults = {
@@ -16,11 +20,9 @@ M.defaults = {
     base = "",
     email = "",
     token = "",
-    limit = 200,
-    -- story_point_field = "customfield_10023", -- company
-    story_point_field = "customfield_10035", -- company
-    -- story_point_field = "customfield_10016", -- team
+    limit = 500,
   },
+  projects = {}
 }
 
 ---@type JiraConfig
@@ -29,6 +31,17 @@ M.options = vim.deepcopy(M.defaults)
 ---@param opts JiraConfig
 function M.setup(opts)
   M.options = vim.tbl_deep_extend("force", M.defaults, opts or {})
+end
+
+---@param project_key string|nil
+---@return table
+function M.get_project_config(project_key)
+  local projects = M.options.projects or {}
+  local p_config = projects[project_key] or {}
+
+  return {
+    story_point_field = p_config.story_point_field or FALLBACKS.story_point_field,
+  }
 end
 
 return M

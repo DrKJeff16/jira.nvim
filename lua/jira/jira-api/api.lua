@@ -87,8 +87,9 @@ local function curl_request(method, endpoint, data, callback)
 end
 
 -- Search for issues using JQL
-function M.search_issues(jql, page_token, max_results, fields, callback)
-  local story_point_field = config.options.jira.story_point_field
+function M.search_issues(jql, page_token, max_results, fields, callback, project_key)
+  local p_config = config.get_project_config(project_key)
+  local story_point_field = p_config.story_point_field
   fields = fields or { "summary", "status", "parent", "priority", "assignee", "timespent", "timeoriginalestimate", "issuetype", story_point_field }
 
   local data = {

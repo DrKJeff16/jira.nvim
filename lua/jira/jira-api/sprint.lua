@@ -23,8 +23,11 @@ local function safe_get(obj, key, subkey)
   return val
 end
 
-local function fetch_issues_recursive(jql, callback)
+local function fetch_issues_recursive(project, jql, callback)
   local all_issues = {}
+  local p_config = config.get_project_config(project)
+  local story_point_field = p_config.story_point_field
+  local limit = config.options.jira.limit or 200
 
   local function fetch_page(page_token)
     api.search_issues(jql, page_token, 100, nil, function(result, err)
@@ -58,7 +61,6 @@ local function fetch_issues_recursive(jql, callback)
           time_estimate = fields.timeoriginalestimate
         end
 
-        local story_point_field = config.options.jira.story_point_field
         local story_points = safe_get(fields, story_point_field)
 
         table.insert(all_issues, {
@@ -75,12 +77,12 @@ local function fetch_issues_recursive(jql, callback)
         })
       end
 
-      if not result.nextPageToken or #all_issues >= config.options.jira.limit then
+      if not result.nextPageToken or #all_issues >= limit then
         if callback then callback(all_issues, nil) end
       else
         fetch_page(result.nextPageToken)
       end
-    end)
+    end, project)
   end
 
   fetch_page("")
@@ -98,7 +100,7 @@ function M.get_active_sprint_issues(project, callback)
     project
   )
 
-  fetch_issues_recursive(jql, callback)
+  fetch_issues_recursive(project, jql, callback)
 end
 
 -- Get backlog issues
@@ -113,7 +115,7 @@ function M.get_backlog_issues(project, callback)
     project
   )
 
-  fetch_issues_recursive(jql, callback)
+  fetch_issues_recursive(project, jql, callback)
 end
 
 return M
