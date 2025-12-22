@@ -5,7 +5,7 @@
 @email = {{JIRA_EMAIL}}
 @token = {{JIRA_TOKEN}}
 
-@project = COM
+@project = SPAC
 @issueKey = COM-17801
 
 ### ============================================================================
@@ -28,7 +28,7 @@ Content-Type: application/json
 Accept: application/json
 
 {
-  "jql": "project = {{project}} AND sprint in openSprints() AND key=COM-17976 ORDER BY status ASC, priority DESC",
+  "jql": "project = {{project}} AND sprint in openSprints() ORDER BY status ASC, priority DESC",
   "fields": [
     "summary",
     "issuetype",
