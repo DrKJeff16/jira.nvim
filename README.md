@@ -50,16 +50,7 @@ If you don't provide a project key, you will be prompted to enter one.
 
 | Key | Action |
 | --- | --- |
-| `<Tab>` | Toggle Node (Expand/Collapse) |
-| `S` | Switch to Active Sprint |
-| `J` | Switch to JQL Dashboard |
-| `H` | Switch to Help |
-| `K` | Quick Issue Details (Popup) |
-| `m` | Read Task as Markdown |
-| `gx` | Open Task in Browser |
-| `r` | Refresh current view |
-| `a` | Switch to Action Mode |
-| `q` | Close Board |
+| `H` | Show help |
 
 ## Features (AI generated)
 
