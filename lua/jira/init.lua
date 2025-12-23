@@ -338,11 +338,16 @@ M.read_task = function()
       end
 
       local fields = issue.fields or {}
+      local assignee_name = "Unassigned"
+      if fields.assignee and fields.assignee ~= vim.NIL and fields.assignee.displayName then
+        assignee_name = fields.assignee.displayName
+      end
+
       local lines = {}
       table.insert(lines, "# " .. issue.key .. ": " .. (fields.summary or ""))
       table.insert(lines, "")
       table.insert(lines, "**Status**: " .. (fields.status and fields.status.name or "Unknown"))
-      table.insert(lines, "**Assignee**: " .. (fields.assignee and fields.assignee.displayName or "Unassigned"))
+      table.insert(lines, "**Assignee**: " .. assignee_name)
       table.insert(lines, "**Priority**: " .. (fields.priority and fields.priority.name or "None"))
       table.insert(lines, "")
       table.insert(lines, "## Description")
@@ -358,14 +363,16 @@ M.read_task = function()
       end
 
       local p_config = config.get_project_config(state.project_key)
-      local ac_field = p_config.acceptance_criteria_field
-      if ac_field and fields[ac_field] then
-        table.insert(lines, "")
-        table.insert(lines, "## Acceptance Criteria")
-        table.insert(lines, "")
-        local ac_md = util.adf_to_markdown(fields[ac_field])
-        for line in ac_md:gmatch("[^\r\n]+") do
-          table.insert(lines, line)
+      local custom_fields = p_config.custom_fields or {}
+      for _, cf in ipairs(custom_fields) do
+        if cf.key and cf.label and fields[cf.key] then
+          table.insert(lines, "")
+          table.insert(lines, "## " .. cf.label)
+          table.insert(lines, "")
+          local cf_md = util.adf_to_markdown(fields[cf.key])
+          for line in cf_md:gmatch("[^\r\n]+") do
+            table.insert(lines, line)
+          end
         end
       end
 
