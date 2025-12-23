@@ -1,3 +1,4 @@
+-- For pure function
 local M = {}
 
 ---@class JiraIssue
@@ -129,6 +130,14 @@ end
 M.adf_to_markdown = function(adf)
   if not adf then return "" end
   return parse_adf(adf)
+end
+
+M.strim = function (s)
+  -- Remove leading whitespace
+  s = s:gsub("^%s+", "")
+  -- Remove trailing whitespace
+  s = s:gsub("%s+$", "")
+  return s
 end
 
 return M

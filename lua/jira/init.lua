@@ -6,6 +6,7 @@ local state = require "jira.state"
 local config = require "jira.config"
 local render = require "jira.render"
 local util = require "jira.util"
+local helper = require "jira.helper"
 local sprint = require("jira.jira-api.sprint")
 local ui = require("jira.ui")
 
@@ -15,8 +16,7 @@ end
 
 M.toggle_node = function()
   local cursor = api.nvim_win_get_cursor(state.win)
-  local row = cursor[1] - 1
-  local node = state.line_map[row]
+  local node = helper.get_node_at_cursor()
 
   if node and node.children and #node.children > 0 then
     node.expanded = not node.expanded
@@ -225,18 +225,14 @@ M.load_view = function(project_key, view_name)
 end
 
 M.show_issue_details = function()
-  local cursor = api.nvim_win_get_cursor(state.win)
-  local row = cursor[1] - 1
-  local node = state.line_map[row]
+  local node = helper.get_node_at_cursor()
   if not node then return end
 
   ui.show_issue_details_popup(node)
 end
 
 M.change_status = function()
-  local cursor = api.nvim_win_get_cursor(state.win)
-  local row = cursor[1] - 1
-  local node = state.line_map[row]
+  local node = helper.get_node_at_cursor()
   if not node or not node.key then return end
 
   ui.start_loading("Fetching transitions for " .. node.key .. "...")
@@ -287,9 +283,7 @@ M.change_status = function()
 end
 
 M.change_assignee = function()
-  local cursor = api.nvim_win_get_cursor(state.win)
-  local row = cursor[1] - 1
-  local node = state.line_map[row]
+  local node = helper.get_node_at_cursor()
   if not node or not node.key then return end
 
   local jira_api = require("jira.jira-api.api")
@@ -344,9 +338,7 @@ M.change_assignee = function()
 end
 
 M.read_task = function()
-  local cursor = api.nvim_win_get_cursor(state.win)
-  local row = cursor[1] - 1
-  local node = state.line_map[row]
+  local node = helper.get_node_at_cursor()
   if not node or not node.key then return end
 
   ui.start_loading("Fetching full details for " .. node.key .. "...")
@@ -396,10 +388,24 @@ M.read_task = function()
   end)
 end
 
+M.log_time = function()
+  local node = helper.get_node_at_cursor()
+  if not node or not node.key then return end
+
+  local jira_api = require("jira.jira-api.api")
+
+  vim.ui.input({ prompt = "Log time for " .. node.key .. ":" }, function(value)
+    value = util.strim(value)
+    if not value then return end
+    if value == "" then return end
+    if value == "0" then return end
+
+    print("Time", value)
+  end)
+end
+
 M.open_in_browser = function()
-  local cursor = api.nvim_win_get_cursor(state.win)
-  local row = cursor[1] - 1
-  local node = state.line_map[row]
+  local node = helper.get_node_at_cursor()
   if not node or not node.key then return end
 
   local base = config.options.jira.base
@@ -443,4 +449,3 @@ M.open = function(project_key)
 end
 
 return M
-
