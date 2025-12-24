@@ -209,7 +209,7 @@ local function render_issue_line(node, depth, row)
 
   local time_pad = (" "):rep(MAX.TIME - vim.fn.strdisplaywidth(time_str))
   local ass_pad = (" "):rep(MAX.ASSIGNEE - vim.fn.strdisplaywidth(assignee_str))
-  local status_pad = (" "):format(MAX.STATUS - vim.fn.strdisplaywidth(status))
+  local status_pad = (" "):rep(MAX.STATUS - vim.fn.strdisplaywidth(status))
   local status_str = " " .. status .. status_pad .. " "
 
   local right_part = ("%s  %s%s  %s%s  %s"):format(bar_display, time_str, time_pad, assignee_str, ass_pad, status_str)
