@@ -129,4 +129,4 @@ function M.get_issues_by_jql(project, jql, callback)
 end
 
 return M
-
+-- vim: set ts=2 sts=2 sw=2 et ai si sta:

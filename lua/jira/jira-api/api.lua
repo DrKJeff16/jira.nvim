@@ -295,3 +295,4 @@ function M.add_comment(issue_key, comment, callback)
 end
 
 return M
+-- vim: set ts=2 sts=2 sw=2 et ai si sta:
